@@ -1,0 +1,21 @@
+{
+  "name": "adonis-host",
+  "private": true,
+  "description": "Adonis Host — PMS pentru Hostel Adonis Costinești",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:generate": "pnpm --filter @adonis/database generate",
+    "db:push": "pnpm --filter @adonis/database push",
+    "db:seed": "pnpm --filter @adonis/database seed",
+    "db:setup": "pnpm db:generate && pnpm db:push && pnpm db:seed"
+  },
+  "devDependencies": {
+    "turbo": "2.5.8"
+  },
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

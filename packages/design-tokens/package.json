@@ -1,0 +1,14 @@
+{
+  "name": "@adonis/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Adonis Heritage — design tokens (DTCG / Style Dictionary v4)",
+  "main": "tokens.json",
+  "files": ["tokens.json", "dist"],
+  "scripts": {
+    "build": "style-dictionary build --config style-dictionary.config.mjs"
+  },
+  "devDependencies": {
+    "style-dictionary": "^4.3.0"
+  }
+}

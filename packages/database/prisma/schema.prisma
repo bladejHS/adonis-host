@@ -1,0 +1,428 @@
+// Adonis Host — schema de date
+// Dev: SQLite (zero configurare). Producție: schimbă provider-ul în "postgresql";
+// câmpurile "enum" sunt String validate în cod (src/enums.ts), iar JSON-ul e String,
+// ca schema să meargă identic pe ambele baze de date.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Proprietate & camere ───────────────────────────
+
+model Property {
+  id               String   @id @default(cuid())
+  name             String
+  legalName        String?
+  cui              String?
+  regCom           String?
+  address          String
+  city             String
+  county           String
+  phone            String?
+  email            String?
+  website          String?
+  checkInTime      String   @default("15:00")
+  checkOutTime     String   @default("11:00")
+  currency         String   @default("RON")
+  vatRate          Float    @default(11) // TVA cazare (%)
+  touristTaxMode   String   @default("percent") // percent | per_night_person
+  touristTaxValue  Float    @default(1)
+  invoiceSeries    String   @default("ADN")
+  nextInvoiceNo    Int      @default(1)
+  wifiName         String?
+  wifiPassword     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  roomTypes   RoomType[]
+  rooms       Room[]
+  channels    Channel[]
+  seasonRules SeasonRule[]
+}
+
+model RoomType {
+  id          String  @id @default(cuid())
+  propertyId  String
+  code        String  @unique
+  name        String
+  description String?
+  capacity    Int
+  extraBeds   Int     @default(1)
+  baseRate    Float // RON / noapte în extrasezon
+  sortOrder   Int     @default(0)
+
+  property    Property      @relation(fields: [propertyId], references: [id])
+  rooms       Room[]
+  dailyRates  DailyRate[]
+  seasonRules SeasonRule[]
+}
+
+model Room {
+  id                String  @id @default(cuid())
+  propertyId        String
+  roomTypeId        String
+  number            String  @unique
+  floor             Int // 0 = parter
+  seaView           String  @default("none") // full | side | none
+  hasBalcony        Boolean @default(false)
+  bedSetup          String // ex: "1 pat matrimonial", "1 matrimonial + 1 single"
+  amenities         String  @default("[]") // JSON: ["ac_daikin","fridge","tv_led","safe","wifi","private_bath"]
+  housekeeping      String  @default("clean") // clean | dirty | inspect | maintenance
+  notes             String?
+  icalExportToken   String  @unique @default(cuid())
+  active            Boolean @default(true)
+
+  property      Property               @relation(fields: [propertyId], references: [id])
+  roomType      RoomType               @relation(fields: [roomTypeId], references: [id])
+  reservations  Reservation[]
+  tasks         HousekeepingTask[]
+  overrides     AvailabilityOverride[]
+  channelLinks  ChannelRoomLink[]
+  accessCodes   AccessCode[]
+}
+
+// ─────────────────────────── Tarife & sezoane ───────────────────────────
+
+model SeasonRule {
+  id          String   @id @default(cuid())
+  propertyId  String
+  roomTypeId  String? // null = toate tipurile
+  name        String
+  startDate   DateTime
+  endDate     DateTime // inclusiv
+  multiplier  Float    @default(1)
+  minStay     Int      @default(1)
+  priority    Int      @default(0)
+  color       String?
+
+  property Property  @relation(fields: [propertyId], references: [id])
+  roomType RoomType? @relation(fields: [roomTypeId], references: [id])
+}
+
+model DailyRate {
+  id         String   @id @default(cuid())
+  roomTypeId String
+  date       DateTime
+  rate       Float
+  minStay    Int?
+  closed     Boolean  @default(false)
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id])
+
+  @@unique([roomTypeId, date])
+}
+
+model AvailabilityOverride {
+  id        String   @id @default(cuid())
+  roomId    String
+  startDate DateTime
+  endDate   DateTime // exclusiv
+  reason    String // maintenance | owner_use | closed
+  note      String?
+
+  room Room @relation(fields: [roomId], references: [id])
+}
+
+// ─────────────────────────── Oaspeți & rezervări ───────────────────────────
+
+model Guest {
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  country       String    @default("RO")
+  city          String?
+  idDocType     String? // CI | pasaport
+  idDocNumber   String?
+  cnp           String?
+  birthDate     DateTime?
+  tags          String    @default("[]") // JSON: ["oaspete_fidel","familie_cu_copii","vedere_mare"]
+  allergies     String?
+  preferences   String?
+  notes         String?
+  marketingOk   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  reservations  Reservation[]
+  conversations WhatsappConversation[]
+  consents      ConsentLog[]
+  invoices      Invoice[]
+}
+
+model Reservation {
+  id              String    @id @default(cuid())
+  code            String    @unique // ADN-2026-0001
+  roomId          String
+  guestId         String
+  channelId       String?
+  source          String    @default("direct") // direct | phone | booking | airbnb | other
+  status          String    @default("confirmed") // pending | confirmed | checked_in | checked_out | cancelled | no_show
+  checkIn         DateTime
+  checkOut        DateTime
+  adults          Int       @default(2)
+  children        Int       @default(0)
+  totalAmount     Float     @default(0) // cazare, fără taxă turistică
+  touristTax      Float     @default(0)
+  paidAmount      Float     @default(0)
+  currency        String    @default("RON")
+  voucherType     String? // sodexo | edenred | up | card_vacanta
+  notes           String?
+  // Sincronizare canale — iCal acum, XML mai târziu, fără refactor
+  externalUid     String? // UID-ul VEVENT din iCal
+  externalBookingId String? // ID-ul Booking.com (XML API)
+  lastSyncedAt    DateTime?
+  checkinToken    String    @unique @default(cuid())
+  checkinDoneAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  cancelledAt     DateTime?
+
+  room       Room              @relation(fields: [roomId], references: [id])
+  guest      Guest             @relation(fields: [guestId], references: [id])
+  channel    Channel?          @relation(fields: [channelId], references: [id])
+  payments   Payment[]
+  invoices   Invoice[]
+  purchases  UpsellPurchase[]
+  tasks      HousekeepingTask[]
+  accessCodes AccessCode[]
+  paymentLinks PaymentLink[]
+
+  @@index([checkIn, checkOut])
+  @@unique([channelId, externalUid])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  reservationId String
+  amount        Float
+  method        String // cash | card | transfer | voucher | online
+  kind          String   @default("advance") // advance | final | refund
+  paidAt        DateTime @default(now())
+  reference     String?
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Canale & sincronizare ───────────────────────────
+
+model Channel {
+  id              String   @id @default(cuid())
+  propertyId      String
+  name            String
+  kind            String // booking | airbnb | direct | phone | other
+  syncType        String   @default("ical") // ical | xml | none
+  commissionPct   Float    @default(0)
+  syncIntervalMin Int      @default(15)
+  active          Boolean  @default(true)
+  xmlHotelId      String? // pentru viitorul Booking.com XML API
+  lastSyncAt      DateTime?
+  lastSyncStatus  String? // ok | error | partial
+
+  property     Property          @relation(fields: [propertyId], references: [id])
+  roomLinks    ChannelRoomLink[]
+  reservations Reservation[]
+  syncLogs     ChannelSyncLog[]
+}
+
+// Un feed iCal per cameră per canal (așa exportă Booking/Airbnb)
+model ChannelRoomLink {
+  id          String  @id @default(cuid())
+  channelId   String
+  roomId      String
+  importUrl   String? // feed-ul canalului, citit de noi
+  externalRoomId String? // pentru XML
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  room    Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, roomId])
+}
+
+model ChannelSyncLog {
+  id         String   @id @default(cuid())
+  channelId  String
+  type       String   @default("ical") // ical | xml | unified
+  direction  String   @default("import") // import | export
+  status     String // ok | error | partial
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  created    Int      @default(0)
+  updated    Int      @default(0)
+  cancelled  Int      @default(0)
+  conflicts  Int      @default(0)
+  message    String?
+  details    String? // JSON
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Mesaje & GDPR ───────────────────────────
+
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  trigger   String // booking_confirmed | pre_arrival | checkin_day | during_stay | post_checkout | manual
+  tone      String   @default("warm_formal") // warm_formal | casual_friendly | festive
+  language  String   @default("ro")
+  body      String
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model WhatsappConversation {
+  id        String   @id @default(cuid())
+  guestId   String
+  phone     String
+  lastMessageAt DateTime @default(now())
+  messages  String   @default("[]") // JSON [{dir,text,at}]
+
+  guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+}
+
+model ConsentLog {
+  id        String   @id @default(cuid())
+  guestId   String
+  kind      String // gdpr_processing | marketing | whatsapp | id_scan
+  granted   Boolean
+  source    String // checkin_form | staff | website
+  ip        String?
+  createdAt DateTime @default(now())
+
+  guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Financiar ───────────────────────────
+
+model Invoice {
+  id             String   @id @default(cuid())
+  series         String
+  number         Int
+  reservationId  String?
+  guestId        String?
+  buyerName      String
+  buyerCui       String?
+  buyerAddress   String?
+  issueDate      DateTime @default(now())
+  lines          String // JSON [{description, qty, unitPrice, vatRate}]
+  subtotal       Float
+  vatAmount      Float
+  touristTax     Float    @default(0)
+  total          Float
+  status         String   @default("issued") // draft | issued | paid | cancelled
+  efacturaStatus String   @default("not_sent") // not_sent | sent | accepted | rejected
+  efacturaId     String?
+  smartbillId    String?
+
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+  guest       Guest?       @relation(fields: [guestId], references: [id])
+
+  @@unique([series, number])
+}
+
+model FinancialReport {
+  id          String   @id @default(cuid())
+  period      String // 2026-07 sau 2026-07-15
+  kind        String // daily | monthly
+  data        String // JSON snapshot KPI
+  generatedAt DateTime @default(now())
+
+  @@unique([kind, period])
+}
+
+// ─────────────────────────── Operațional ───────────────────────────
+
+model HousekeepingTask {
+  id            String    @id @default(cuid())
+  roomId        String
+  reservationId String?
+  type          String // checkout_clean | stay_clean | linen_change | inspection | maintenance
+  status        String    @default("todo") // todo | in_progress | done | verified
+  priority      String    @default("normal") // low | normal | high
+  assignee      String?
+  dueDate       DateTime
+  startedAt     DateTime?
+  completedAt   DateTime?
+  photoUrl      String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  room        Room         @relation(fields: [roomId], references: [id])
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+}
+
+model UpsellOffer {
+  id            String  @id @default(cuid())
+  title         String
+  description   String
+  category      String // room_upgrade | restaurant | wellness | experience | event
+  price         Float
+  unit          String  @default("per_stay") // per_stay | per_night | per_person
+  seasonalRules String  @default("{}") // JSON {months:[6,7,8], minNights:2}
+  imagePath     String?
+  active        Boolean @default(true)
+  sortOrder     Int     @default(0)
+
+  purchases UpsellPurchase[]
+}
+
+model UpsellPurchase {
+  id            String   @id @default(cuid())
+  offerId       String
+  reservationId String
+  quantity      Int      @default(1)
+  amount        Float
+  status        String   @default("pending") // offered | pending | paid | cancelled
+  createdAt     DateTime @default(now())
+
+  offer       UpsellOffer @relation(fields: [offerId], references: [id])
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+}
+
+model PaymentLink {
+  id            String   @id @default(cuid())
+  reservationId String
+  provider      String // stripe | netopia
+  amount        Float
+  url           String?
+  status        String   @default("created") // created | paid | expired
+  createdAt     DateTime @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+}
+
+model AccessCode {
+  id            String   @id @default(cuid())
+  roomId        String
+  reservationId String?
+  code          String
+  provider      String   @default("manual") // manual | ttlock | salto
+  lockId        String?
+  validFrom     DateTime
+  validTo       DateTime
+  status        String   @default("active") // active | revoked | expired
+
+  room        Room         @relation(fields: [roomId], references: [id])
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+}
+
+model MediaAsset {
+  id         String   @id @default(cuid())
+  entityType String // property | room | room_type | offer
+  entityId   String?
+  category   String // courtyard | sea_view | room | bathroom | hallway | amenity
+  path       String
+  sourcePath String? // fișierul original din arhivă
+  altText    String
+  width      Int?
+  height     Int?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}

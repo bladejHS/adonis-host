@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+.turbo
+*.db
+*.db-journal
+.env
+.env.local
+# Arhiva foto originală (~260 MB) rămâne local; în repo intră doar variantele optimizate
+/*.jpeg
+stay-control/
+.dev.log
+*.tsbuildinfo
