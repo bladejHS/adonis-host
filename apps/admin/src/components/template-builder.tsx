@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import clsx from "clsx";
-import { SAMPLE_VARS, TEMPLATE_VARS, renderTemplate, unknownVars } from "@/lib/template-vars";
+import { SAMPLE_VARS, TEMPLATE_VARS, renderTemplate, unknownVars } from "@adonis/core/pure";
 import { Field, Notice } from "./ui";
 
 type T = { id?: string; name: string; trigger: string; tone: string; body: string; active: boolean };
@@ -29,7 +29,7 @@ export function TemplateBuilder({ initial, save: saveTemplate, remove: deleteTem
   const [idx, setIdx] = useState(0);
   const [draft, setDraft] = useState<T>(initial[0] ?? BLANK);
   const [saved, setSaved] = useState<string | null>(null);
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
 
   const select = (i: number) => {
@@ -51,8 +51,18 @@ export function TemplateBuilder({ initial, save: saveTemplate, remove: deleteTem
     });
   };
 
+  // pending ținut manual: funcționează la fel în Next (server actions) și în versiunea Pages
+  const run = async (fn: () => Promise<void>) => {
+    setPending(true);
+    try {
+      await fn();
+    } finally {
+      setPending(false);
+    }
+  };
+
   const save = () =>
-    start(async () => {
+    run(async () => {
       const id = await saveTemplate(draft);
       const next = { ...draft, id };
       const copy = [...list];
@@ -64,7 +74,7 @@ export function TemplateBuilder({ initial, save: saveTemplate, remove: deleteTem
     });
 
   const remove = () =>
-    start(async () => {
+    run(async () => {
       if (draft.id) await deleteTemplate(draft.id);
       const copy = list.filter((_, i) => i !== idx);
       setList(copy);

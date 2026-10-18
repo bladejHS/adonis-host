@@ -2,7 +2,7 @@
 // Taxa turistică nu intră în baza de TVA și nu face parte din livrare: se menționează în notă
 // și se încasează separat (chitanță), ca factura să respecte regulile EN 16931.
 
-import { round2 } from "@adonis/database";
+import { round2 } from "@adonis/database/pricing";
 
 export type UblLine = { description: string; qty: number; unitPrice: number; vatRate: number };
 export type UblParty = {

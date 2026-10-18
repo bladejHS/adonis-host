@@ -1,0 +1,12 @@
+{
+  "name": "Adonis Host — Hostel Adonis Costinești",
+  "short_name": "Adonis Host",
+  "description": "Rezervări, calendar, oaspeți, curățenie și rapoarte pentru Hostel Adonis Costinești.",
+  "lang": "ro",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#081a25",
+  "theme_color": "#081a25",
+  "icons": [{ "src": "brand/adonis-app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -11,7 +11,8 @@
     "./auth": "./src/auth.ts",
     "./watermark": "./src/watermark.ts",
     "./validators": "./src/validators.ts",
-    "./password": "./src/password.ts"
+    "./password": "./src/password.ts",
+    "./pure": "./src/pure/index.ts"
   },
   "scripts": {
     "test": "vitest run",

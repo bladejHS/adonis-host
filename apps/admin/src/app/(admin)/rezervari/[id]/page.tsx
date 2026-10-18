@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { fmtDateTime, fmtLong, isoDay, json, lei } from "@/lib/format";
 import { addPayment, addUpsellToReservation, createBalanceLink, issueInvoice, setPurchaseStatus, setReservationStatus } from "@/lib/actions";
 import { SendMessage } from "@/components/send-message";
-import { renderTemplate, type TemplateVars } from "@/lib/template-vars";
+import { renderTemplate, type TemplateVars } from "@adonis/core/pure";
 import { Card, Field, Notice, SourceTag, StatusBadge } from "@/components/ui";
 import { ReservationEdit } from "@/components/reservation-edit";
 import { Submit } from "@/components/submit";
