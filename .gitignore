@@ -11,3 +11,12 @@ dist
 stay-control/
 .dev.log
 *.tsbuildinfo
+storage/
+e2e-report/
+test-results/
+storybook-static/
+.api.log
+.guest.log
+packages/core/test-storage/
+*.db-wal
+*.db-shm

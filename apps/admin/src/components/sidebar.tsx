@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  BarChart3, BedDouble, CalendarDays, ConciergeBell, Gift, LayoutDashboard, Menu, MessageCircle,
-  Receipt, RefreshCw, Settings, SprayCan, Tags, Users, X,
+  BarChart3, BedDouble, CalendarDays, ConciergeBell, Gift, LayoutDashboard, LineChart, LogOut, Menu, MessageCircle,
+  Package, Receipt, RefreshCw, Settings, SprayCan, Tags, Users, X,
 } from "lucide-react";
 import clsx from "clsx";
+import { ROLE_LABEL, canAccess, type Role } from "@adonis/core/auth";
+import { logout } from "@/lib/actions";
 
 const groups = [
   {
@@ -24,6 +26,7 @@ const groups = [
     items: [
       { href: "/camere", label: "Camere", icon: BedDouble },
       { href: "/curatenie", label: "Curățenie", icon: SprayCan },
+      { href: "/consumabile", label: "Consumabile", icon: Package },
       { href: "/mesaje", label: "Mesaje WhatsApp", icon: MessageCircle },
       { href: "/oferte", label: "Oferte extra", icon: Gift },
     ],
@@ -35,12 +38,13 @@ const groups = [
       { href: "/tarife", label: "Tarife & sezoane", icon: Tags },
       { href: "/facturi", label: "Facturi & taxe", icon: Receipt },
       { href: "/rapoarte", label: "Rapoarte", icon: BarChart3 },
+      { href: "/analitice", label: "Analitice & alerte", icon: LineChart },
       { href: "/setari", label: "Setări", icon: Settings },
     ],
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: { name: string; role: Role } }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
@@ -66,7 +70,7 @@ export function Sidebar() {
         </div>
         <div className="mx-6 h-px bg-gradient-to-r from-gold/0 via-gold/50 to-gold/0" />
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-6">
-          {groups.map((g) => (
+          {groups.map((g) => ({ ...g, items: g.items.filter((i) => canAccess(user.role, i.href)) })).filter((g) => g.items.length).map((g) => (
             <div key={g.label} className="space-y-1">
               <p className="px-3 pb-1 text-[0.625rem] uppercase tracking-label text-navy-400">{g.label}</p>
               {g.items.map(({ href, label, icon: Icon }) => (
@@ -87,9 +91,16 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
-        <div className="border-t border-white/10 px-6 py-4 text-xs text-navy-400">
-          <p className="text-ivory-50">Recepție Adonis</p>
-          <p>Disponibili 24/24 · 0742 100 480</p>
+        <div className="flex items-center gap-3 border-t border-white/10 px-6 py-4 text-xs text-navy-400">
+          <Link href="/cont" className="min-w-0 flex-1 hover:text-ivory-50" onClick={() => setOpen(false)}>
+            <p className="truncate text-ivory-50">{user.name}</p>
+            <p>{ROLE_LABEL[user.role]} · contul meu</p>
+          </Link>
+          <form action={logout}>
+            <button className="rounded p-2 hover:bg-white/5 hover:text-gold-300" aria-label="Ieșire" title="Ieșire">
+              <LogOut size={16} strokeWidth={1.5} />
+            </button>
+          </form>
         </div>
       </aside>
       {open && <button type="button" aria-label="Închide meniul" className="fixed inset-0 z-30 bg-navy-950/40 lg:hidden" onClick={() => setOpen(false)} />}

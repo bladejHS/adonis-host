@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { HOUSEKEEPING, RESERVATION_STATUS, SOURCE, TASK_STATUS } from "@adonis/database";
+import { HOUSEKEEPING, RESERVATION_STATUS, SOURCE, TASK_STATUS } from "@adonis/database/enums";
 
 export const cx = clsx;
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { fmtLong, json, lei, today } from "@/lib/format";
 import { Card, Empty, PageHeader, Stat } from "@/components/ui";
+import { SmartBillButton } from "@/components/smartbill-button";
 
 export const metadata = { title: "Facturi & taxe" };
 
@@ -44,7 +45,7 @@ export default async function Invoices({ searchParams }: { searchParams: { f?: s
         <Stat label="Facturat" value={lei(totalInvoiced)} tone="gold" hint={`${invoices.length} facturi`} />
         <Stat label="TVA colectat" value={lei(vat)} />
         <Stat label="Taxă turistică" value={lei(byMonth.reduce((s, x) => s + x.tax, 0))} hint="de virat la Primăria Costinești" />
-        <Stat label="Netrimise în e-Factura" value={notSent} hint={notSent ? "trimitere automată în Faza 4" : "toate trimise"} />
+        <Stat label="Netrimise în e-Factura" value={notSent} hint={notSent ? "trimiteți prin SmartBill sau descărcați XML-ul" : "toate trimise"} />
       </div>
 
       {selected && (
@@ -79,6 +80,11 @@ export default async function Invoices({ searchParams }: { searchParams: { f?: s
               <div className="flex justify-between font-display text-2xl text-heading"><dt>Total</dt><dd className="num">{lei(selected.total, true)}</dd></div>
             </dl>
             <p className="text-center font-display text-lg italic text-gold-text">Vă mulțumim și vă așteptăm cu drag la malul mării.</p>
+            <div className="flex flex-wrap justify-center gap-2 border-t border-line pt-5">
+              <a href={`/api/facturi/${selected.id}/ubl`} className="btn-ghost btn-sm">Descarcă XML e-Factura (UBL)</a>
+              {selected.efacturaStatus === "not_sent" && <SmartBillButton invoiceId={selected.id} />}
+              {selected.smartbillId && <span className="text-xs text-subtle">SmartBill: {selected.smartbillId}</span>}
+            </div>
           </div>
         </section>
       )}

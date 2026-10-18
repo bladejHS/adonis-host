@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Adonis Casă",
+    "slug": "adonis-staff",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#081a25",
+    "primaryColor": "#c6a15b",
+    "ios": { "bundleIdentifier": "ro.casaadonis.staff", "supportsTablet": true, "infoPlist": { "NSCameraUsageDescription": "Fotografiem daunele din camere, cu dată și oră." } },
+    "android": { "package": "ro.casaadonis.staff", "permissions": ["CAMERA", "POST_NOTIFICATIONS"] },
+    "plugins": [["expo-notifications", { "color": "#c6a15b" }], "expo-secure-store", ["expo-image-picker", { "cameraPermission": "Fotografiem daunele din camere, cu dată și oră." }]],
+    "extra": { "apiUrl": "http://192.168.1.10:4000" }
+  }
+}

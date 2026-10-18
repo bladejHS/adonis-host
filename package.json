@@ -9,10 +9,15 @@
     "db:generate": "pnpm --filter @adonis/database generate",
     "db:push": "pnpm --filter @adonis/database push",
     "db:seed": "pnpm --filter @adonis/database seed",
-    "db:setup": "pnpm db:generate && pnpm db:push && pnpm db:seed"
+    "db:setup": "pnpm db:generate && pnpm db:push && pnpm db:seed",
+    "test": "pnpm --filter @adonis/core test",
+    "test:e2e": "playwright test",
+    "brand:check": "node scripts/brand-check.mjs",
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
-    "turbo": "2.5.8"
+    "turbo": "2.5.8",
+    "@playwright/test": "1.48.2"
   },
   "packageManager": "pnpm@10.18.0",
   "engines": {

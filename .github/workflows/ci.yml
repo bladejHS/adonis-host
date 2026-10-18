@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificare:
+    name: Tipuri, teste unitare, brand
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: file:./dev.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile --filter "!@adonis/staff-mobile"
+      - run: pnpm --filter @adonis/database generate
+      - name: Consistența brandului (culori din tokens.json, fără violet/teal/albastru electric)
+        run: node scripts/brand-check.mjs
+      - name: Tipuri
+        run: |
+          pnpm --filter @adonis/core exec tsc --noEmit
+          pnpm --filter @adonis/admin exec tsc --noEmit
+          pnpm --filter @adonis/guest exec tsc --noEmit
+          pnpm --filter @adonis/api exec tsc --noEmit
+      - name: Teste unitare (sincronizare, plăți, conformitate)
+        run: pnpm --filter @adonis/core test
+
+  e2e:
+    name: End-to-end (check-in, ofertă cu plată, rezervare)
+    runs-on: ubuntu-latest
+    needs: verificare
+    env:
+      DATABASE_URL: file:${{ github.workspace }}/packages/database/prisma/dev.db
+      STORAGE_DIR: ${{ github.workspace }}/storage
+      AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci-secret-1234
+      GUEST_BASE_URL: http://localhost:3001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile --filter "!@adonis/staff-mobile"
+      - run: pnpm db:setup
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: e2e-report, path: e2e-report }

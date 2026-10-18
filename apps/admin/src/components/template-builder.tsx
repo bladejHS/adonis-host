@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import clsx from "clsx";
-import { deleteTemplate, saveTemplate } from "@/lib/actions";
 import { SAMPLE_VARS, TEMPLATE_VARS, renderTemplate, unknownVars } from "@/lib/template-vars";
 import { Field, Notice } from "./ui";
 
@@ -20,7 +19,12 @@ const TRIGGERS: Record<string, string> = {
 };
 const BLANK: T = { name: "Șablon nou", trigger: "manual", tone: "warm_formal", body: "Bună ziua, {guest_name}!\n\n", active: true };
 
-export function TemplateBuilder({ initial }: { initial: T[] }) {
+export type TemplateActions = {
+  save: (t: T) => Promise<string>;
+  remove: (id: string) => Promise<void>;
+};
+
+export function TemplateBuilder({ initial, save: saveTemplate, remove: deleteTemplate }: { initial: T[] } & TemplateActions) {
   const [list, setList] = useState<T[]>(initial);
   const [idx, setIdx] = useState(0);
   const [draft, setDraft] = useState<T>(initial[0] ?? BLANK);
@@ -160,7 +164,7 @@ export function TemplateBuilder({ initial }: { initial: T[] }) {
             </div>
           </div>
         </div>
-        <p className="mt-3 text-center text-xs text-subtle">Exemplu cu date fictive. Trimiterea automată prin WhatsApp Business API se activează în Faza 3.</p>
+        <p className="mt-3 text-center text-xs text-subtle">Exemplu cu date fictive. Cu WhatsApp Business conectat (Setări → Integrări), mesajele pleacă direct din fișa rezervării.</p>
       </aside>
     </div>
   );

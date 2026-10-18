@@ -4,7 +4,8 @@ import { ArrowLeft, FileText, MessageCircle } from "lucide-react";
 import { PAYMENT_METHOD, SEA_VIEW, UPSELL_CATEGORY, nightsBetween } from "@adonis/database";
 import { prisma } from "@/lib/db";
 import { fmtDateTime, fmtLong, isoDay, json, lei } from "@/lib/format";
-import { addPayment, addUpsellToReservation, issueInvoice, setPurchaseStatus, setReservationStatus } from "@/lib/actions";
+import { addPayment, addUpsellToReservation, createBalanceLink, issueInvoice, setPurchaseStatus, setReservationStatus } from "@/lib/actions";
+import { SendMessage } from "@/components/send-message";
 import { renderTemplate, type TemplateVars } from "@/lib/template-vars";
 import { Card, Field, Notice, SourceTag, StatusBadge } from "@/components/ui";
 import { ReservationEdit } from "@/components/reservation-edit";
@@ -20,6 +21,8 @@ export default async function ReservationDetail({ params, searchParams }: { para
       payments: { orderBy: { paidAt: "asc" } },
       invoices: true,
       purchases: { include: { offer: true }, orderBy: { createdAt: "asc" } },
+      checkin: true,
+      paymentLinks: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!r) notFound();
@@ -51,7 +54,7 @@ export default async function ReservationDetail({ params, searchParams }: { para
     balance: lei(Math.max(0, due)),
     wifi_name: p.wifiName ?? "",
     wifi_password: p.wifiPassword ?? "",
-    checkin_link: `${base.replace(":3000", ":3001")}/checkin/${r.checkinToken}`,
+    checkin_link: `${process.env.GUEST_BASE_URL ?? base.replace(":3000", ":3001")}/checkin/${r.checkinToken}`,
     next_year: String(r.checkIn.getUTCFullYear() + 1),
   };
   const phone = (r.guest.phone ?? "").replace(/\D/g, "").replace(/^0/, "40");
@@ -236,7 +239,7 @@ export default async function ReservationDetail({ params, searchParams }: { para
                     <div className="space-y-3 border-t border-line px-4 py-3">
                       <p className="whitespace-pre-line text-sm leading-relaxed">{text}</p>
                       {phone ? (
-                        <a className="btn-primary btn-sm" target="_blank" rel="noreferrer" href={`https://wa.me/${phone}?text=${encodeURIComponent(text)}`}>Deschide în WhatsApp</a>
+                        <SendMessage reservationId={r.id} text={text} fallback={`https://wa.me/${phone}?text=${encodeURIComponent(text)}`} />
                       ) : (
                         <p className="text-xs text-subtle">Adăugați telefonul oaspetelui ca să trimiteți pe WhatsApp.</p>
                       )}
@@ -265,13 +268,56 @@ export default async function ReservationDetail({ params, searchParams }: { para
                 <Submit className="btn-ghost w-full" pendingText="Se emite…">Emite factură</Submit>
               </form>
             )}
-            <p className="mt-3 text-xs text-subtle">Trimiterea în e-Factura ANAF prin SmartBill se activează în Faza 4.</p>
+            <p className="mt-3 text-xs text-subtle">Din pagina facturii: trimitere prin SmartBill în e-Factura sau XML UBL pentru SPV.</p>
           </Card>
 
           <Card title="Check-in online">
-            <p className="text-sm text-subtle">Oaspetele completează actul de identitate și semnează contractul de pe telefon, înainte de sosire.</p>
-            <p className="num mt-3 break-all rounded-sm bg-muted px-3 py-2 text-xs">{vars.checkin_link}</p>
-            <p className="mt-2 text-xs text-subtle">{r.checkinDoneAt ? `Completat pe ${fmtLong(r.checkinDoneAt)}.` : "Pagina pentru oaspeți se construiește în Faza 3."}</p>
+            {r.checkin ? (
+              <div className="space-y-4 text-sm">
+                <p className="text-success">Completat pe {fmtDateTime(r.checkin.signedAt)}{r.checkin.arrivalTime ? ` · sosire în jur de ${r.checkin.arrivalTime}` : ""}</p>
+                <dl className="space-y-1.5">
+                  <div className="flex justify-between gap-4"><dt className="text-subtle">Act</dt><dd className="num">{r.checkin.idDocType === "CI" ? "CI" : "Pașaport"} {r.checkin.idDocNumber}</dd></div>
+                  {r.guest.cnp && <div className="flex justify-between gap-4"><dt className="text-subtle">CNP</dt><dd className="num">{r.guest.cnp}</dd></div>}
+                  <div className="flex justify-between gap-4"><dt className="text-subtle">Contract</dt><dd>versiunea {r.checkin.contractVersion}</dd></div>
+                </dl>
+                <div className="grid grid-cols-2 gap-3">
+                  <a href={`/api/fisiere/${r.checkin.idImagePath}`} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-sm border border-line">
+                    <img src={`/api/fisiere/${r.checkin.idImagePath}`} alt="Actul de identitate" className="h-28 w-full object-cover" />
+                  </a>
+                  <a href={`/api/fisiere/${r.checkin.signaturePath}`} target="_blank" rel="noreferrer" className="flex items-center justify-center rounded-sm border border-line bg-white p-2">
+                    <img src={`/api/fisiere/${r.checkin.signaturePath}`} alt="Semnătura" className="max-h-24" />
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-subtle">Oaspetele completează actul de identitate și semnează contractul de pe telefon, înainte de sosire. Linkul e inclus în mesajul „Înainte de sosire”.</p>
+                <a href={vars.checkin_link} target="_blank" rel="noreferrer" className="num mt-3 block break-all rounded-sm bg-muted px-3 py-2 text-xs text-gold-text hover:underline">{vars.checkin_link}</a>
+              </>
+            )}
+          </Card>
+
+          <Card title="Plată online">
+            {r.paymentLinks.length > 0 && (
+              <ul className="mb-4 space-y-2 text-sm">
+                {r.paymentLinks.map((l) => (
+                  <li key={l.id} className="flex items-center justify-between gap-3">
+                    <span>{{ balance: "Rest de plată", upsell: "Extra", advance: "Avans" }[l.purpose] ?? l.purpose} · {l.provider === "demo" ? "demo" : l.provider}</span>
+                    <span className="num">{lei(l.amount)}</span>
+                    <span className={l.status === "paid" ? "text-success" : "text-warning"}>{l.status === "paid" ? "plătit" : "așteaptă"}</span>
+                    {l.url && l.status !== "paid" && <a href={l.url} target="_blank" rel="noreferrer" className="text-xs text-gold-text hover:underline">link</a>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {due > 0.5 && r.status !== "cancelled" ? (
+              <form action={createBalanceLink.bind(null, r.id)}>
+                <Submit className="btn-ghost w-full" pendingText="Se creează…">Creează link de plată pentru {lei(due)}</Submit>
+              </form>
+            ) : (
+              <p className="text-sm text-subtle">Nimic de încasat.</p>
+            )}
+            <p className="mt-3 text-xs text-subtle">Fără chei Stripe sau Netopia, linkul deschide pagina demo (nu se încasează bani).</p>
           </Card>
         </div>
       </div>

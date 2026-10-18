@@ -1,4 +1,4 @@
-import { exportRoomCalendar } from "@/lib/ical";
+import { exportRoomCalendar } from "@adonis/core";
 
 export const dynamic = "force-dynamic";
 

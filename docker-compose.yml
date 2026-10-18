@@ -1,0 +1,68 @@
+# Mediu complet local, ca în producție: PostgreSQL + Redis + API + admin + oaspeți.
+#   cp .env.example .env    (completați AUTH_SECRET)
+#   docker compose up --build
+#   docker compose exec api sh -c "cd ../../packages/database && npx tsx prisma/seed.ts"   # date demo
+#
+# Admin: http://localhost:3000 · Oaspeți: http://localhost:3001 · API + documentație: http://localhost:4000/docs
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: adonis
+      POSTGRES_PASSWORD: adonis
+      POSTGRES_DB: adonis
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adonis"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  api:
+    build: { context: ., target: api }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://adonis:adonis@db:5432/adonis
+      REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /data/storage
+      API_BASE_URL: http://localhost:4000
+      GUEST_BASE_URL: http://localhost:3001
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    volumes: [storage:/data/storage]
+    ports: ["4000:4000"]
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  admin:
+    build: { context: ., target: admin }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://adonis:adonis@db:5432/adonis
+      STORAGE_DIR: /data/storage
+      NEXT_PUBLIC_BASE_URL: http://localhost:3000
+      GUEST_BASE_URL: http://localhost:3001
+    volumes: [storage:/data/storage]
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+  guest:
+    build: { context: ., target: guest }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://adonis:adonis@db:5432/adonis
+      STORAGE_DIR: /data/storage
+      GUEST_BASE_URL: http://localhost:3001
+      API_BASE_URL: http://localhost:4000
+    volumes: [storage:/data/storage]
+    ports: ["3001:3001"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  storage:

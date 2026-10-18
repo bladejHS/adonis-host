@@ -1,6 +1,6 @@
 "use client";
 
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, ComposedChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, ComposedChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const ink = "#5f6a73";
 const grid = "#e6dccb";
@@ -77,5 +77,47 @@ export function SimpleBars({ data, unit = "lei" }: { data: { label: string; valu
         <Bar dataKey="value" fill={gold} radius={[2, 2, 0, 0]} maxBarSize={40} />
       </BarChart>
     </ResponsiveContainer>
+  );
+}
+
+export function SeasonalityChart({ data, marks }: { data: { label: string; occupancy: number; revenue: number }[]; marks: { label: string; name: string }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <ComposedChart data={data} margin={{ top: 24, right: 8, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="seasonFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={navy} stopOpacity={0.9} />
+            <stop offset="1" stopColor={navy} stopOpacity={0.55} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke={grid} vertical={false} />
+        <XAxis dataKey="label" tick={{ fill: ink, fontSize: 11 }} axisLine={false} tickLine={false} interval={1} />
+        <YAxis yAxisId="o" domain={[0, 1]} tick={{ fill: ink, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Math.round(v * 100)}%`} width={40} />
+        <YAxis yAxisId="r" orientation="right" tick={{ fill: ink, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${fmt.format(v / 1000)}k`} width={40} />
+        <Tooltip {...tooltipStyle} formatter={(v: number, n: string) => (n === "occupancy" ? [`${Math.round(v * 100)}%`, "Ocupare"] : [`${fmt.format(v)} lei`, "Venit"])} />
+        <Bar yAxisId="o" dataKey="occupancy" fill="url(#seasonFill)" radius={[2, 2, 0, 0]} maxBarSize={22} />
+        <Line yAxisId="r" dataKey="revenue" stroke={gold} strokeWidth={2} dot={false} />
+        {marks.map((m) => (
+          <ReferenceLine key={m.name} yAxisId="o" x={m.label} stroke={gold} strokeDasharray="3 3" label={{ value: m.name, position: "top", fill: "#7d5f27", fontSize: 10 }} />
+        ))}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function RatingBars({ data }: { data: { label: string; count: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.count));
+  return (
+    <div className="space-y-2.5">
+      {data.map((d) => (
+        <div key={d.label} className="grid grid-cols-[150px_1fr_40px] items-center gap-3 text-sm">
+          <span className="text-subtle">{d.label}</span>
+          <span className="h-2 rounded-full bg-muted">
+            <span className="block h-2 rounded-full bg-gold" style={{ width: `${(d.count / max) * 100}%` }} />
+          </span>
+          <span className="num text-right">{d.count}</span>
+        </div>
+      ))}
+    </div>
   );
 }

@@ -192,6 +192,9 @@ model Reservation {
   tasks      HousekeepingTask[]
   accessCodes AccessCode[]
   paymentLinks PaymentLink[]
+  checkin      CheckinRecord?
+  reviews      Review[]
+  upsellEvents UpsellEvent[]
 
   @@index([checkIn, checkOut])
   @@unique([channelId, externalUid])
@@ -350,10 +353,15 @@ model HousekeepingTask {
   completedAt   DateTime?
   photoUrl      String?
   notes         String?
+  assigneeId    String?
+  minutesSpent  Int?
   createdAt     DateTime  @default(now())
 
   room        Room         @relation(fields: [roomId], references: [id])
   reservation Reservation? @relation(fields: [reservationId], references: [id])
+  assigneeUser User?       @relation(fields: [assigneeId], references: [id])
+  photos      TaskPhoto[]
+  consumption InventoryMovement[]
 }
 
 model UpsellOffer {
@@ -369,6 +377,21 @@ model UpsellOffer {
   sortOrder     Int     @default(0)
 
   purchases UpsellPurchase[]
+  events    UpsellEvent[]
+}
+
+// Conversie: afișare → clic → cumpărare, pe ofertă și pe rezervare
+model UpsellEvent {
+  id            String   @id @default(cuid())
+  offerId       String
+  reservationId String?
+  kind          String // view | click | purchase
+  createdAt     DateTime @default(now())
+
+  offer       UpsellOffer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  reservation Reservation? @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([offerId, kind])
 }
 
 model UpsellPurchase {
@@ -380,20 +403,28 @@ model UpsellPurchase {
   status        String   @default("pending") // offered | pending | paid | cancelled
   createdAt     DateTime @default(now())
 
-  offer       UpsellOffer @relation(fields: [offerId], references: [id])
-  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  paymentLinkId String?
+
+  offer       UpsellOffer  @relation(fields: [offerId], references: [id])
+  reservation Reservation  @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  paymentLink PaymentLink? @relation(fields: [paymentLinkId], references: [id])
 }
 
 model PaymentLink {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   reservationId String
-  provider      String // stripe | netopia
+  provider      String // stripe | netopia | demo
+  purpose       String    @default("balance") // balance | upsell | advance
   amount        Float
+  currency      String    @default("RON")
   url           String?
-  status        String   @default("created") // created | paid | expired
-  createdAt     DateTime @default(now())
+  externalId    String? // Stripe Checkout Session id / Netopia ntpID
+  status        String    @default("created") // created | paid | expired | failed
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
 
-  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  reservation Reservation      @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  purchases   UpsellPurchase[]
 }
 
 model AccessCode {
@@ -425,4 +456,130 @@ model MediaAsset {
   createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])
+}
+
+// ─────────────────────────── Personal & securitate ───────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("reception") // owner | manager | reception | housekeeping | maintenance
+  active       Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  tasks   HousekeepingTask[]
+  devices PushDevice[]
+  movements InventoryMovement[]
+}
+
+model PushDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique // Expo push token
+  platform  String // ios | android
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Check-in online ───────────────────────────
+
+model CheckinRecord {
+  id              String   @id @default(cuid())
+  reservationId   String   @unique
+  idDocType       String
+  idDocNumber     String
+  idImagePath     String // în storage (local sau R2)
+  signaturePath   String
+  contractVersion String
+  arrivalTime     String?
+  companions      String   @default("[]") // JSON [{firstName,lastName,birthDate}]
+  ip              String?
+  userAgent       String?
+  signedAt        DateTime @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Curățenie: poze & consumabile ───────────────────────────
+
+model TaskPhoto {
+  id        String   @id @default(cuid())
+  taskId    String
+  path      String // imagine cu watermark (dată, oră, cameră)
+  kind      String   @default("damage") // damage | done | other
+  note      String?
+  takenAt   DateTime @default(now())
+
+  task HousekeepingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model InventoryItem {
+  id         String  @id @default(cuid())
+  name       String
+  unit       String // buc | rolă | l | set
+  category   String // lenjerie | prosoape | igiena | curatenie | minibar
+  stock      Float   @default(0)
+  minStock   Float   @default(0)
+  perCheckout Float  @default(0) // consum standard la o curățenie de plecare
+
+  movements InventoryMovement[]
+}
+
+model InventoryMovement {
+  id        String   @id @default(cuid())
+  itemId    String
+  quantity  Float // negativ = consum, pozitiv = aprovizionare
+  reason    String // checkout_clean | restock | adjustment | damage
+  taskId    String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  item InventoryItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  task HousekeepingTask? @relation(fields: [taskId], references: [id])
+  user User?             @relation(fields: [userId], references: [id])
+}
+
+// ─────────────────────────── Fiscal & analitic ───────────────────────────
+
+model TouristTaxRule {
+  id        String   @id @default(cuid())
+  locality  String // „Costinești”
+  county    String
+  mode      String // percent | per_night_person
+  value     Float
+  validFrom DateTime
+  source    String? // HCL nr./an
+  exemptUnder Int    @default(18) // scutiți sub vârsta (copiii nu sunt numărați în adults)
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  reservationId String?
+  source        String // booking | google | airbnb | direct
+  rating        Float // normalizat 0–10
+  title         String?
+  comment       String?
+  author        String?
+  language      String   @default("ro")
+  createdAt     DateTime @default(now())
+  repliedAt     DateTime?
+
+  reservation Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+}
+
+model Alert {
+  id        String   @id @default(cuid())
+  kind      String // booking_pace_drop | negative_review | sync_error | low_stock | overbooking
+  severity  String   @default("warning") // info | warning | critical
+  title     String
+  body      String
+  link      String?
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+
+  @@index([resolvedAt])
 }

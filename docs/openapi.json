@@ -1,0 +1,1125 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Stare serviciu",
+        "tags": [
+          "Sistem"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Întoarce un token Bearer valabil 30 de zile (aplicația mobilă).",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "mariana@casaadonis.ro"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Autentificare personal",
+        "tags": [
+          "Autentificare"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Utilizatorul curent",
+        "tags": [
+          "Autentificare"
+        ]
+      }
+    },
+    "/reservations": {
+      "get": {
+        "description": "Filtre: interval (rezervări care se suprapun cu el), stare, canal.",
+        "operationId": "ReservationsController_list",
+        "parameters": [
+          {
+            "name": "source",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "pending",
+                "confirmed",
+                "checked_in",
+                "checked_out",
+                "cancelled",
+                "no_show"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-10-31"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-10-01"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listă rezervări",
+        "tags": [
+          "Rezervări"
+        ]
+      },
+      "post": {
+        "description": "Prețul se calculează pe sezon dacă nu se trimite totalAmount. Refuză camerele ocupate.",
+        "operationId": "ReservationsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roomId": {
+                    "type": "string"
+                  },
+                  "checkIn": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2027-07-12"
+                  },
+                  "checkOut": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2027-07-17"
+                  },
+                  "adults": {
+                    "type": "integer",
+                    "example": 2
+                  },
+                  "children": {
+                    "type": "integer"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "direct",
+                      "phone",
+                      "booking",
+                      "airbnb",
+                      "other"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "confirmed"
+                    ]
+                  },
+                  "totalAmount": {
+                    "type": "number"
+                  },
+                  "advance": {
+                    "type": "number"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "guest": {
+                    "type": "object",
+                    "properties": {
+                      "firstName": {
+                        "type": "string"
+                      },
+                      "lastName": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "city": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "roomId",
+                  "checkIn",
+                  "checkOut",
+                  "adults",
+                  "guest"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rezervare nouă",
+        "tags": [
+          "Rezervări"
+        ]
+      }
+    },
+    "/reservations/{id}": {
+      "get": {
+        "operationId": "ReservationsController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Detaliu rezervare",
+        "tags": [
+          "Rezervări"
+        ]
+      },
+      "patch": {
+        "operationId": "ReservationsController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roomId": {
+                    "type": "string"
+                  },
+                  "checkIn": {
+                    "type": "string"
+                  },
+                  "checkOut": {
+                    "type": "string"
+                  },
+                  "adults": {
+                    "type": "integer"
+                  },
+                  "children": {
+                    "type": "integer"
+                  },
+                  "totalAmount": {
+                    "type": "number"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifică rezervarea",
+        "tags": [
+          "Rezervări"
+        ]
+      }
+    },
+    "/reservations/{id}/status": {
+      "post": {
+        "description": "checked_out creează automat sarcina de curățenie și anunță personalul.",
+        "operationId": "ReservationsController_status",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "confirmed",
+                      "checked_in",
+                      "checked_out",
+                      "cancelled",
+                      "no_show"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Schimbă starea",
+        "tags": [
+          "Rezervări"
+        ]
+      }
+    },
+    "/quote": {
+      "get": {
+        "description": "Tarif pe nopți după sezon, taxă turistică, disponibilitate.",
+        "operationId": "ReservationsController_quote",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ofertă de preț",
+        "tags": [
+          "Rezervări"
+        ]
+      }
+    },
+    "/calendar": {
+      "get": {
+        "description": "Camerele cu rezervările și blocările care se suprapun cu intervalul.",
+        "operationId": "ReservationsController_calendar",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Calendar camere",
+        "tags": [
+          "Rezervări"
+        ]
+      }
+    },
+    "/sync/channels": {
+      "get": {
+        "description": "Ultima sincronizare, intervalul și modul (BullMQ sau intern).",
+        "operationId": "SyncController_channels",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Starea canalelor",
+        "tags": [
+          "Sincronizare canale"
+        ]
+      }
+    },
+    "/sync/channels/{id}/run": {
+      "post": {
+        "description": "Pune o sincronizare în coadă (BullMQ) sau o rulează imediat dacă nu există Redis.",
+        "operationId": "SyncController_run",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sincronizează acum",
+        "tags": [
+          "Sincronizare canale"
+        ]
+      }
+    },
+    "/sync/logs": {
+      "get": {
+        "operationId": "SyncController_logs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Jurnal sincronizări",
+        "tags": [
+          "Sincronizare canale"
+        ]
+      }
+    },
+    "/message-templates": {
+      "get": {
+        "operationId": "TemplatesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Toate șabloanele",
+        "tags": [
+          "Șabloane mesaje"
+        ]
+      },
+      "post": {
+        "operationId": "TemplatesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "trigger",
+                  "tone",
+                  "body"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "enum": [
+                      "booking_confirmed",
+                      "pre_arrival",
+                      "checkin_day",
+                      "during_stay",
+                      "post_checkout",
+                      "manual"
+                    ]
+                  },
+                  "tone": {
+                    "type": "string",
+                    "enum": [
+                      "warm_formal",
+                      "casual_friendly",
+                      "festive"
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "example": "Bună ziua, {guest_name}!"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Șablon nou",
+        "tags": [
+          "Șabloane mesaje"
+        ]
+      }
+    },
+    "/message-templates/{id}": {
+      "patch": {
+        "operationId": "TemplatesController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "trigger",
+                  "tone",
+                  "body"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "enum": [
+                      "booking_confirmed",
+                      "pre_arrival",
+                      "checkin_day",
+                      "during_stay",
+                      "post_checkout",
+                      "manual"
+                    ]
+                  },
+                  "tone": {
+                    "type": "string",
+                    "enum": [
+                      "warm_formal",
+                      "casual_friendly",
+                      "festive"
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "example": "Bună ziua, {guest_name}!"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modifică șablonul",
+        "tags": [
+          "Șabloane mesaje"
+        ]
+      },
+      "delete": {
+        "operationId": "TemplatesController_remove",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Șterge șablonul",
+        "tags": [
+          "Șabloane mesaje"
+        ]
+      }
+    },
+    "/checkin/{token}": {
+      "get": {
+        "description": "Tokenul vine în mesajul de dinaintea sosirii. Expiră a doua zi după plecare.",
+        "operationId": "GuestController_info",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Datele pentru check-in online",
+        "tags": [
+          "Oaspeți (fără autentificare, cu token)"
+        ]
+      },
+      "post": {
+        "description": "Act de identitate (imagine), semnătură PNG, acorduri GDPR. Validează CNP-ul și seria actului.",
+        "operationId": "GuestController_submit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "country",
+                  "idDocType",
+                  "idDocNumber",
+                  "idImage",
+                  "signature",
+                  "consentGdpr"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string",
+                    "example": "RO"
+                  },
+                  "idDocType": {
+                    "type": "string",
+                    "enum": [
+                      "CI",
+                      "pasaport"
+                    ]
+                  },
+                  "idDocNumber": {
+                    "type": "string",
+                    "example": "CT123456"
+                  },
+                  "cnp": {
+                    "type": "string"
+                  },
+                  "idImage": {
+                    "type": "string",
+                    "description": "data URL JPEG/PNG"
+                  },
+                  "signature": {
+                    "type": "string",
+                    "description": "data URL PNG"
+                  },
+                  "consentGdpr": {
+                    "type": "boolean"
+                  },
+                  "consentMarketing": {
+                    "type": "boolean"
+                  },
+                  "consentWhatsapp": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Trimite check-in-ul",
+        "tags": [
+          "Oaspeți (fără autentificare, cu token)"
+        ]
+      }
+    },
+    "/upsell/{token}": {
+      "get": {
+        "description": "Filtrate după sezon, nopți, tipul camerei și zilele rămase până la sosire. Înregistrează afișarea.",
+        "operationId": "GuestController_offers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Ofertele potrivite sejurului",
+        "tags": [
+          "Oaspeți (fără autentificare, cu token)"
+        ]
+      }
+    },
+    "/upsell/{token}/checkout": {
+      "post": {
+        "description": "Creează comenzile și un link de plată (Stripe, Netopia sau demo).",
+        "operationId": "GuestController_checkout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "offerIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "stripe",
+                      "netopia"
+                    ]
+                  }
+                },
+                "required": [
+                  "offerIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Cumpără ofertele alese",
+        "tags": [
+          "Oaspeți (fără autentificare, cu token)"
+        ]
+      }
+    },
+    "/housekeeping/rooms": {
+      "get": {
+        "description": "Starea fiecărei camere, oaspetele cazat și următoarea sosire.",
+        "operationId": "HousekeepingController_rooms",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Tabla camerelor",
+        "tags": [
+          "Curățenie (aplicația mobilă)"
+        ]
+      }
+    },
+    "/housekeeping/tasks": {
+      "get": {
+        "description": "?mine=1 doar sarcinile utilizatorului curent.",
+        "operationId": "HousekeepingController_tasks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sarcini deschise",
+        "tags": [
+          "Curățenie (aplicația mobilă)"
+        ]
+      }
+    },
+    "/housekeeping/tasks/{id}/advance": {
+      "post": {
+        "description": "todo → in_progress (pornește cronometrul) → done (scade consumabilele) → verified.",
+        "operationId": "HousekeepingController_advance",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "in_progress",
+                      "done",
+                      "verified"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Avansează sarcina",
+        "tags": [
+          "Curățenie (aplicația mobilă)"
+        ]
+      }
+    },
+    "/housekeeping/tasks/{id}/photos": {
+      "post": {
+        "description": "Imaginea primește watermark cu camera, data și ora, apoi se salvează.",
+        "operationId": "HousekeepingController_photo",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "description": "data URL JPEG"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "damage",
+                      "done",
+                      "other"
+                    ]
+                  }
+                },
+                "required": [
+                  "image"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Poză daună",
+        "tags": [
+          "Curățenie (aplicația mobilă)"
+        ]
+      }
+    },
+    "/inventory": {
+      "get": {
+        "description": "Stoc curent, minim și consum standard la o curățenie de plecare.",
+        "operationId": "HousekeepingController_inventory",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consumabile",
+        "tags": [
+          "Curățenie (aplicația mobilă)"
+        ]
+      }
+    },
+    "/inventory/{id}/adjust": {
+      "post": {
+        "description": "Cantitate negativă = consum, pozitivă = aprovizionare.",
+        "operationId": "HousekeepingController_adjust",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "number"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "restock",
+                      "adjustment",
+                      "damage"
+                    ]
+                  }
+                },
+                "required": [
+                  "quantity",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mișcare de stoc",
+        "tags": [
+          "Curățenie (aplicația mobilă)"
+        ]
+      }
+    },
+    "/devices": {
+      "post": {
+        "operationId": "HousekeepingController_device",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "example": "ExponentPushToken[xxxx]"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android"
+                    ]
+                  }
+                },
+                "required": [
+                  "token",
+                  "platform"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Înregistrează telefonul pentru notificări push",
+        "tags": [
+          "Curățenie (aplicația mobilă)"
+        ]
+      }
+    },
+    "/reports/kpi": {
+      "get": {
+        "description": "Ocupare, ADR, RevPAR, rata de anulare, venit pe canal, pentru intervalul [from, to).",
+        "operationId": "FinanceController_kpi",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Indicatori",
+        "tags": [
+          "Financiar & conformitate"
+        ]
+      }
+    },
+    "/reports/registry.csv": {
+      "get": {
+        "description": "Rubricile fișei de anunțare a sosirii și plecării. Separator „;”, UTF-8 cu BOM.",
+        "operationId": "FinanceController_registry",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Evidența turiștilor (CSV)",
+        "tags": [
+          "Financiar & conformitate"
+        ]
+      }
+    },
+    "/invoices/{id}/ubl.xml": {
+      "get": {
+        "operationId": "FinanceController_ubl",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Factura în format e-Factura (UBL CIUS-RO)",
+        "tags": [
+          "Financiar & conformitate"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Adonis Host API",
+    "description": "API-ul Hostelului Adonis Costinești: rezervări, calendar, sincronizare canale, șabloane mesaje, check-in online, curățenie, financiar.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [
+    {
+      "url": "http://localhost:4000"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}

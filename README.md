@@ -1,57 +1,67 @@
 # Adonis Host
 
-Sistemul de administrare (PMS) al **Hostelului Adonis Costinești** — 24 de camere, 54 de locuri, la 35 m de Marea Neagră.
+Sistemul de administrare al **Hostelului Adonis Costinești** — 24 de camere, 54 de locuri, la 35 m de Marea Neagră.
 
-## Ce face acum
+![Panou](docs/ghid/02-panou.png)
 
-| Modul | Unde | Ce poți face |
+## Ce conține
+
+| Aplicație | Pentru cine | Ce face |
 |---|---|---|
-| Panou | `/` | Sosiri și plecări azi cu check-in/check-out dintr-un clic, alerte (rest de plată, reparații, erori de sincronizare), ocupare pe 14 zile, venit pe canale |
-| Rezervări | `/rezervari` | Listă cu filtre și căutare, rezervare nouă cu preț calculat pe sezon și verificare de disponibilitate, fișa rezervării: plăți, extra, factură, mesaje WhatsApp gata scrise, modificare date/cameră |
-| Calendar | `/calendar` | Toate camerele pe 21 de zile, colorate pe canal; clic pe o zi liberă = rezervare nouă |
-| Oaspeți | `/oaspeti` | Istoric, etichete (oaspete fidel, familie cu copii), alergii, preferințe, acord marketing |
-| Camere | `/camere` | Starea fiecărei camere, cine e cazat, schimbarea stării de curățenie |
-| Curățenie | `/curatenie` | Tablă de sarcini (De făcut → În lucru → Gata → Verificată); la check-out se creează automat |
-| Mesaje WhatsApp | `/mesaje` | Editor de șabloane cu variabile și previzualizare pe telefon, tonuri: cald-formal, prietenos, festiv |
-| Oferte extra | `/oferte` | Catalog (upgrade vedere la mare, grătar în curte, barcă la răsărit…), reguli pe luni, conversie |
-| Canale | `/canale` | Sincronizare iCal Booking.com/Airbnb cu detectarea suprapunerilor, jurnal, linkuri iCal exportate pe cameră |
-| Tarife | `/tarife` | Tarif de bază pe tip de cameră, sezoane cu multiplicator, minim de nopți și prioritate |
-| Facturi & taxe | `/facturi` | Facturi emise, TVA, taxa turistică pe luni |
-| Rapoarte | `/rapoarte` | Ocupare, ADR, RevPAR, anulări, venit și comision pe canal, lună de lună |
-| Setări | `/setari` | Date firmă, ore check-in/out, Wi-Fi, TVA, taxă turistică, serie facturi |
+| `apps/admin` (Next.js 14) | Recepție, proprietar | Rezervări, calendar, oaspeți, camere, curățenie, consumabile, mesaje WhatsApp, oferte extra, canale iCal, tarife pe sezon, facturi și e-Factura, taxa turistică, rapoarte, analitice și alerte, conturi pe roluri |
+| `apps/guest` (Next.js 14) | Oaspeți, pe telefon | Check-in online (act, CNP validat, contract semnat cu degetul, acorduri GDPR), pagina de bun venit cu poze reale și ora răsăritului, oferte potrivite sejurului cu plată online |
+| `apps/api` (NestJS) | Aplicația mobilă, integrări | API documentat OpenAPI, sincronizare programată (BullMQ + Redis sau temporizator), webhook-uri Stripe/Netopia, poze cu watermark |
+| `apps/staff-mobile` (Expo) | Curățenie, întreținere | Sarcini cu cronometru, poze de daune, tabla camerelor, consumabile, notificări push |
+| `packages/core` | — | Logica comună: sincronizare iCal (+ pregătire Booking XML), rezervări, check-in, plăți, UBL CIUS-RO, SmartBill, evidența turiștilor, analitice |
+| `packages/database` | — | Schema Prisma (SQLite local, PostgreSQL producție), migrare, date demo |
+| `packages/design-tokens` | — | Design system „Adonis Riviera” și logo-ul |
 
-## Pornire
+## Pornire locală
 
-Cerințe: Node 20+, pnpm 10.
+Cerințe: Node 22+, pnpm 10.
 
 ```bash
 pnpm install
-cp apps/admin/.env.example apps/admin/.env   # puneți calea absolută către packages/database/prisma/dev.db
-pnpm db:setup                                 # creează baza SQLite și o umple cu date demo
-pnpm --filter @adonis/admin dev               # http://localhost:3000
+pnpm db:setup                       # baza SQLite + date demo (sezonul 2026, rezervări 2027)
+cp apps/admin/.env.example apps/admin/.env   # și la fel pentru apps/guest, apps/api — calea absolută către dev.db
+pnpm --filter @adonis/admin dev     # http://localhost:3000
+pnpm --filter @adonis/guest dev     # http://localhost:3001
+pnpm --filter @adonis/api dev       # http://localhost:4000/docs
 ```
 
-`pnpm db:seed` reface datele demo oricând (sezonul 2026, sejururi în curs, early booking 2027).
+Conturi demo (parola `adonis-demo`, de schimbat înainte de folosirea reală):
 
-Test rapid al sincronizării iCal (fără rețea, curăță după el):
+| E-mail | Rol |
+|---|---|
+| proprietar@casaadonis.ro | Proprietar — acces complet |
+| receptie@casaadonis.ro | Recepție |
+| mariana@casaadonis.ro | Curățenie (și în aplicația mobilă) |
+| nelu@casaadonis.ro | Întreținere |
+
+Totul cu Docker (PostgreSQL + Redis + cele trei servicii): `cp .env.example .env && docker compose up --build`.
+
+## Teste
 
 ```bash
-cd packages/database && DATABASE_URL="file:./dev.db" npx tsx ../../apps/admin/scripts/ical-smoke.ts
+pnpm test                    # 41 de teste unitare: tarife, CNP, iCal, XML Booking, plăți, UBL, check-in
+pnpm test:e2e                # Playwright: check-in online, ofertă cu plată, rezervare nouă, roluri
+pnpm brand:check             # culorile din cod există în design system; fără violet/teal/albastru electric
+pnpm --filter @adonis/admin storybook   # editorul de șabloane WhatsApp, izolat
 ```
 
-## Structură
+CI-ul (`.github/workflows/ci.yml`) rulează tipurile, testele unitare, verificarea de brand și testele end-to-end la fiecare push.
 
-```
-apps/admin                 Next.js 14 (App Router) — panoul de administrare
-packages/database          Prisma (SQLite în dev, PostgreSQL în producție), enumerări, calcul tarif
-packages/design-tokens     Paleta „Adonis Riviera”, tokens DTCG, logo SVG
-DESIGN_SYSTEM.md           Ghidul vizual
-```
+## Documentație
 
-## Ce urmează
+- [Ghidul personalului](docs/ghid-personal.md), cu capturi
+- [Design system](DESIGN_SYSTEM.md) și [schema de date](DATABASE_DESIGN.md)
+- [API](docs/api.md) · [OpenAPI](docs/openapi.json)
+- [Punere în funcțiune](docs/deployment.md): Vercel, Railway, Cloudflare R2, secrete
+- [Runbook de întreținere](docs/runbook.md)
+- [Trecerea Booking.com la XML](docs/booking-xml-migration.md)
 
-- **Faza 3** — aplicația pentru oaspeți (check-in online cu act de identitate și semnătură), WhatsApp Business API, sincronizare automată programată (BullMQ), autentificare personal.
-- **Faza 4** — linkuri de plată Stripe/Netopia, e-Factura prin SmartBill, registrul de cazare, aplicația mobilă pentru curățenie, pregătire Booking.com XML.
-- **Faza 5** — deploy (Vercel + Railway, Cloudflare R2), teste end-to-end, ghid pentru personal.
+## Ce rămâne de configurat cu date reale
 
-Fotografiile originale (~260 MB) rămân local, în afara repo-ului. În aplicație sunt folosite variante WebP optimizate din `apps/admin/public/photos`.
+Integrările sunt construite, dar au nevoie de conturile hotelului: chei Stripe sau Netopia, cont SmartBill (e-Factura), WhatsApp Business, bucket Cloudflare R2, linkurile iCal din extranetul Booking și din Airbnb. Până atunci, aplicația folosește moduri demonstrative clar marcate (plată demo, WhatsApp prin link). Cota taxei turistice (1%) și TVA-ul la cazare (11%) sunt valori de pornire de confirmat cu contabilul și Primăria Costinești.
+
+Fotografiile originale (~260 MB) rămân local, în afara repo-ului; aplicațiile folosesc variante WebP optimizate.

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SOURCE } from "@adonis/database";
 import { prisma } from "@/lib/db";
-import { kpis, monthlySeries } from "@/lib/kpi";
+import { kpis, monthlySeries } from "@adonis/core";
 import { lei, pct, today } from "@/lib/format";
 import { Card, PageHeader, Stat, sourceColor } from "@/components/ui";
 import { RevenueOccupancyChart, SimpleBars } from "@/components/charts";

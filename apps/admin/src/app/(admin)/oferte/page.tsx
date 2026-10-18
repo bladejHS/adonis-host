@@ -2,6 +2,7 @@ import { UPSELL_CATEGORY } from "@adonis/database";
 import { prisma } from "@/lib/db";
 import { json, lei, pct } from "@/lib/format";
 import { createOffer, toggleOffer } from "@/lib/actions";
+import { conversionFunnel } from "@adonis/core";
 import { Card, Field, PageHeader, Stat } from "@/components/ui";
 import { Submit } from "@/components/submit";
 
@@ -11,9 +12,10 @@ const MONTHS = ["ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sep", "
 const UNIT: Record<string, string> = { per_stay: "/ sejur", per_night: "/ noapte", per_person: "/ persoană" };
 
 export default async function Offers() {
-  const [offers, stays] = await Promise.all([
+  const [offers, stays, funnel] = await Promise.all([
     prisma.upsellOffer.findMany({ include: { purchases: true }, orderBy: { sortOrder: "asc" } }),
     prisma.reservation.count({ where: { status: { in: ["checked_out", "checked_in", "confirmed"] } } }),
+    conversionFunnel(),
   ]);
   const paid = offers.flatMap((o) => o.purchases.filter((p) => p.status === "paid"));
   const revenue = paid.reduce((s, p) => s + p.amount * p.quantity, 0);
@@ -45,6 +47,12 @@ export default async function Offers() {
                 <h3 className="text-xl leading-tight">{o.title}</h3>
                 <p className="flex-1 text-sm text-subtle">{o.description}</p>
                 <p className="num font-display text-2xl text-heading">{lei(o.price)} <span className="font-sans text-xs text-subtle">{UNIT[o.unit]}</span></p>
+                {funnel[o.id] && (
+                  <p className="num text-xs text-subtle">
+                    {funnel[o.id].view} afișări · {funnel[o.id].click} clicuri · {funnel[o.id].purchase} cumpărări
+                    {funnel[o.id].view > 0 && <span className="text-gold-text"> · {((funnel[o.id].purchase / funnel[o.id].view) * 100).toFixed(1)}% conversie</span>}
+                  </p>
+                )}
                 <p className="text-xs text-subtle">
                   {rules.months?.length ? `Disponibil: ${rules.months.map((m) => MONTHS[m - 1]).join(", ")}` : "Disponibil tot anul"} · {sold.length} vândute
                 </p>
@@ -79,7 +87,7 @@ export default async function Offers() {
           <Field label="Luni disponibile" hint="Numere separate prin virgulă, ex: 6,7,8. Gol = tot anul."><input name="months" className="field" /></Field>
           <div className="md:col-span-2"><Submit>Adaugă oferta</Submit></div>
         </form>
-        <p className="mt-4 text-xs text-subtle">Linkurile de plată (Stripe, Netopia) și pagina de oferte pentru oaspeți se activează în Faza 4.</p>
+        <p className="mt-4 text-xs text-subtle">Oaspeții văd ofertele potrivite sejurului lor pe pagina personală (linkul din mesajul de dinaintea sosirii) și plătesc online prin Stripe sau Netopia.</p>
       </Card>
     </div>
   );

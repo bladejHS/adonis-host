@@ -2,6 +2,7 @@
 // câteva sejururi în octombrie și rezervări early-booking pentru vara 2027.
 // Rulare: pnpm db:seed (șterge și recreează tot).
 
+import { randomBytes, scryptSync } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { quoteStay, touristTax, DAY_MS, startOfDay } from "../src/pricing";
 
@@ -26,10 +27,11 @@ async function main() {
   await prisma.$queryRawUnsafe("PRAGMA synchronous=NORMAL");
   // ordine inversă dependențelor
   for (const m of [
-    "consentLog", "whatsappConversation", "upsellPurchase", "paymentLink", "accessCode", "payment", "invoice",
+    "alert", "review", "upsellEvent", "inventoryMovement", "inventoryItem", "taskPhoto", "checkinRecord", "pushDevice",
+    "touristTaxRule", "consentLog", "whatsappConversation", "upsellPurchase", "paymentLink", "accessCode", "payment", "invoice",
     "housekeepingTask", "reservation", "channelSyncLog", "channelRoomLink", "channel", "availabilityOverride",
     "dailyRate", "seasonRule", "room", "roomType", "guest", "upsellOffer", "messageTemplate", "mediaAsset",
-    "financialReport", "property",
+    "financialReport", "property", "user",
   ] as const) {
     // @ts-expect-error acces dinamic la delegați
     await prisma[m].deleteMany();
@@ -86,14 +88,17 @@ async function main() {
   // Sezoane 2026 + 2027
   const seasonDefs: [string, string, string, number, number, number, string][] = [
     ["1 Mai", "-04-30", "-05-03", 1.5, 2, 30, "#c6a15b"],
-    ["Rusalii", "-05-29", "-06-01", 1.4, 2, 25, "#a8843f"],
+    ["Rusalii", "RUSALII", "", 1.4, 2, 25, "#a8843f"],
     ["Început de sezon", "-06-15", "-07-09", 1.3, 2, 10, "#7b8d99"],
     ["Vârf de sezon", "-07-10", "-08-20", 1.7, 3, 20, "#0b2230"],
     ["Final de sezon", "-08-21", "-08-31", 1.3, 2, 10, "#7b8d99"],
   ];
   const seasons = [];
   for (const year of [2026, 2027]) {
-    for (const [name, a, b, mult, min, prio, color] of seasonDefs) {
+    for (const [name, a0, b0, mult, min, prio, color] of seasonDefs) {
+      // Rusaliile ortodoxe se mută în fiecare an: vineri–luni în jurul duminicii
+      const rus = ({ 2026: ["-05-29", "-06-01"], 2027: ["-06-18", "-06-21"] } as Record<number, string[]>)[year];
+      const [a, b] = a0 === "RUSALII" ? rus : [a0, b0];
       seasons.push(await prisma.seasonRule.create({ data: { propertyId: property.id, name: `${name} ${year}`, startDate: d(year + a), endDate: d(year + b), multiplier: mult, minStay: min, priority: prio, color } }));
     }
   }
@@ -241,14 +246,14 @@ async function main() {
 
   // Oferte (upselling) — pe ce are Adonis cu adevărat
   const offers = [
-    ["Upgrade la vedere totală la mare", "Mutați-vă într-o cameră de la etajul 2 sau 3, cu răsăritul văzut din pat.", "room_upgrade", 60, "per_night", { months: [5, 6, 7, 8, 9] }, "/photos/sea-balcony.webp"],
+    ["Upgrade la vedere totală la mare", "Mutați-vă într-o cameră de la etajul 2 sau 3, cu răsăritul văzut din pat.", "room_upgrade", 60, "per_night", { months: [5, 6, 7, 8, 9], excludeRoomTypes: ["DVM"] }, "/photos/sea-balcony.webp"],
     ["Check-in devreme, de la ora 12:00", "Ajungeți la mare fără să așteptați.", "room_upgrade", 50, "per_stay", {}, null],
     ["Check-out târziu, până la 14:00", "Încă o dimineață pe balcon.", "room_upgrade", 50, "per_stay", {}, null],
     ["Seară la grătar în curte", "Cărbuni, ustensile și o masă rezervată sub bolta de viță.", "restaurant", 80, "per_stay", { months: [6, 7, 8, 9] }, "/photos/courtyard-vine.webp"],
-    ["Coș cu fructe și vin la sosire", "Vin dobrogean, fructe de sezon, flori proaspete.", "event", 120, "per_stay", {}, null],
-    ["Umbrelă și 2 șezlonguri pe plajă", "Loc rezervat zilnic, la 35 m de hostel.", "wellness", 70, "per_night", { months: [6, 7, 8] }, null],
-    ["Plimbare cu barca la răsărit", "O oră pe Marea Neagră, cu plecare de pe plaja din Costinești.", "experience", 150, "per_person", { months: [6, 7, 8, 9] }, null],
-    ["Pat suplimentar pliabil", "Pentru un copil sau un adult, la cerere.", "room_upgrade", 40, "per_night", {}, null],
+    ["Coș cu fructe și vin la sosire", "Vin dobrogean, fructe de sezon, flori proaspete.", "event", 120, "per_stay", { minDaysBeforeArrival: 1 }, null],
+    ["Umbrelă și 2 șezlonguri pe plajă", "Loc rezervat zilnic, la 35 m de hostel.", "wellness", 70, "per_night", { months: [6, 7, 8], maxDaysBeforeArrival: 21 }, null],
+    ["Plimbare cu barca la răsărit", "O oră pe Marea Neagră, cu plecare de pe plaja din Costinești.", "experience", 150, "per_person", { months: [6, 7, 8, 9], maxDaysBeforeArrival: 14, minDaysBeforeArrival: 1 }, null],
+    ["Pat suplimentar pliabil", "Pentru un copil sau un adult, la cerere.", "room_upgrade", 40, "per_night", { roomTypes: ["DVM", "DVL", "TRP"] }, null],
   ] as const;
   const offerRows = [];
   for (const [i, o] of offers.entries()) {
@@ -315,6 +320,86 @@ async function main() {
     ["property", "hallway", "/photos/terrace-geraniums.webp", "Terasa cu mușcate"],
   ];
   for (const [i, [entityType, category, path, altText]] of media.entries()) await prisma.mediaAsset.create({ data: { entityType, category, path, altText, sortOrder: i } });
+
+
+  // Personal (parole demo — se schimbă la prima utilizare reală)
+  const hash = (pw: string) => {
+    const salt = randomBytes(16);
+    return `scrypt$${salt.toString("base64")}$${scryptSync(pw, salt, 64).toString("base64")}`;
+  };
+  const users = {
+    owner: await prisma.user.create({ data: { name: "Familia Adonis", email: "proprietar@casaadonis.ro", passwordHash: hash("adonis-demo"), role: "owner" } }),
+    reception: await prisma.user.create({ data: { name: "Recepție", email: "receptie@casaadonis.ro", passwordHash: hash("adonis-demo"), role: "reception" } }),
+    mariana: await prisma.user.create({ data: { name: "Mariana", email: "mariana@casaadonis.ro", passwordHash: hash("adonis-demo"), role: "housekeeping" } }),
+    nelu: await prisma.user.create({ data: { name: "Nelu", email: "nelu@casaadonis.ro", passwordHash: hash("adonis-demo"), role: "maintenance" } }),
+  };
+  await prisma.housekeepingTask.updateMany({ where: { assignee: "Mariana" }, data: { assigneeId: users.mariana.id } });
+  await prisma.housekeepingTask.updateMany({ where: { assignee: "Nelu" }, data: { assigneeId: users.nelu.id } });
+
+  // Taxa turistică Costinești (valoare demo — se verifică hotărârea Consiliului Local în vigoare)
+  await prisma.touristTaxRule.create({ data: { locality: "Costinești", county: "Constanța", mode: "percent", value: 1, validFrom: d("2024-01-01"), source: "De confirmat cu Primăria Costinești" } });
+
+  // Consumabile
+  const inv: [string, string, string, number, number, number][] = [
+    ["Set lenjerie dublă", "set", "lenjerie", 64, 20, 1],
+    ["Prosop baie", "buc", "prosoape", 140, 40, 2],
+    ["Prosop față", "buc", "prosoape", 130, 40, 2],
+    ["Hârtie igienică", "rolă", "igiena", 180, 60, 2],
+    ["Săpun lichid 300 ml", "buc", "igiena", 22, 24, 0.5],
+    ["Gel de duș 300 ml", "buc", "igiena", 40, 24, 0.5],
+    ["Detergent pardoseli", "l", "curatenie", 12, 5, 0.1],
+    ["Saci menajeri", "rolă", "curatenie", 9, 6, 0.05],
+  ];
+  for (const [name, unit, category, stock, minStock, perCheckout] of inv) {
+    await prisma.inventoryItem.create({ data: { name, unit, category, stock, minStock, perCheckout } });
+  }
+
+  // Recenzii (scala 0–10), legate de sejururi încheiate
+  const done = await prisma.reservation.findMany({ where: { status: "checked_out" }, include: { guest: true }, take: 160, orderBy: { checkOut: "asc" } });
+  const goodReviews = [
+    ["Răsăritul din pat", "Am văzut răsăritul direct din pat, exact cum scria pe site. Camera curată, gazde foarte primitoare."],
+    ["Aproape de plajă", "La câțiva pași de plajă, liniște noaptea, parcare în curte. Revenim sigur."],
+    ["Recomand", "Curat, aer condiționat bun, balcon cu vedere superbă la mare."],
+    ["Gazde de nota 10", "Personal amabil, ne-au ajutat cu umbrelele de plajă. Grătarul din curte a fost un mare plus."],
+    ["Raport calitate-preț bun", "Pentru Costinești, raport calitate preț foarte bun. Camera simplă, dar impecabil de curată."],
+  ] as const;
+  const badReviews = [
+    ["Zgomot seara", "Muzica din stațiune se aude până târziu. Altfel camera a fost ok."],
+    ["Baie veche", "Baia ar avea nevoie de renovare, dușul pierdea apă."],
+  ] as const;
+  for (const [i, r] of done.entries()) {
+    if (rnd() > 0.45) continue;
+    const negative = rnd() < 0.09;
+    const [title, comment] = negative ? pick(badReviews) : pick(goodReviews);
+    const rating = negative ? 4 + Math.round(rnd() * 15) / 10 : Math.min(10, 8 + Math.round(rnd() * 20) / 10);
+    await prisma.review.create({
+      data: {
+        reservationId: r.id,
+        source: r.source === "airbnb" ? "airbnb" : r.source === "booking" ? "booking" : pick(["google", "direct"] as const),
+        rating, title, comment, author: `${r.guest.firstName} ${r.guest.lastName[0]}.`, createdAt: addDays(r.checkOut, 1 + (i % 4)),
+        repliedAt: negative && rnd() < 0.5 ? addDays(r.checkOut, 3) : null,
+      },
+    });
+  }
+  // o recenzie negativă recentă, fără răspuns — apare ca alertă
+  const lastStay = await prisma.reservation.findFirst({ where: { status: "checked_out" }, orderBy: { checkOut: "desc" }, include: { guest: true } });
+  if (lastStay) {
+    await prisma.review.create({
+      data: { reservationId: lastStay.id, source: "booking", rating: 5.4, title: "Zgomot seara", comment: "Muzica din stațiune se aude până târziu, iar apa caldă a venit greu dimineața.", author: `${lastStay.guest.firstName} ${lastStay.guest.lastName[0]}.`, createdAt: addDays(TODAY, -2) },
+    });
+  }
+
+  // Evenimente de conversie pentru ofertele extra (afișări și clicuri pe pagina oaspeților)
+  const offerList = await prisma.upsellOffer.findMany();
+  const viewed = await prisma.reservation.findMany({ where: { status: { in: ["checked_out", "checked_in", "confirmed"] } }, take: 300 });
+  for (const r of viewed) {
+    if (rnd() < 0.55) {
+      await prisma.upsellEvent.createMany({ data: offerList.map((o) => ({ offerId: o.id, reservationId: r.id, kind: "view", createdAt: addDays(r.checkIn, -2) })) });
+      if (rnd() < 0.4) await prisma.upsellEvent.create({ data: { offerId: pick(offerList).id, reservationId: r.id, kind: "click", createdAt: addDays(r.checkIn, -2) } });
+    }
+  }
+  const paidPurchases = await prisma.upsellPurchase.findMany({ where: { status: "paid" } });
+  await prisma.upsellEvent.createMany({ data: paidPurchases.map((p) => ({ offerId: p.offerId, reservationId: p.reservationId, kind: "purchase", createdAt: p.createdAt })) });
 
   console.log("Gata. Bine ați venit la Adonis!");
 }

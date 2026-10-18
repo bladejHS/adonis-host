@@ -1,0 +1,2 @@
+# Migrările sunt pentru PostgreSQL (producție). Local, SQLite folosește `prisma db push`.
+provider = "postgresql"

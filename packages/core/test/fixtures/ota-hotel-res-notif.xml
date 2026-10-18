@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OTA_HotelResNotifRQ xmlns="http://www.opentravel.org/OTA/2003/05" Version="2.001" TimeStamp="2027-05-02T10:21:00+00:00">
+  <HotelReservations>
+    <HotelReservation ResStatus="Book" CreateDateTime="2027-05-02T10:20:55+00:00">
+      <UniqueID Type="14" ID="4105537212"/>
+      <RoomStays>
+        <RoomStay>
+          <RoomTypes><RoomType RoomTypeCode="871234501"/></RoomTypes>
+          <GuestCounts><GuestCount AgeQualifyingCode="10" Count="2"/><GuestCount AgeQualifyingCode="8" Count="1"/></GuestCounts>
+          <TimeSpan Start="2027-07-12" End="2027-07-17"/>
+          <Total AmountAfterTax="2380.00" CurrencyCode="RON"/>
+          <BasicPropertyInfo HotelCode="8712345"/>
+          <ResGuestRPHs GuestName="Elena Marinescu"/>
+        </RoomStay>
+      </RoomStays>
+      <ResGuests><ResGuest><Profiles><ProfileInfo><Profile><Customer>
+        <PersonName><GivenName>Elena</GivenName><Surname>Marinescu</Surname></PersonName>
+        <Telephone PhoneNumber="+40722000111"/>
+        <Email>elena.m@example.com</Email>
+        <Address><CountryName Code="RO"/></Address>
+      </Customer></Profile></ProfileInfo></Profiles></ResGuest></ResGuests>
+      <ResGlobalInfo>
+        <HotelReservationIDs><HotelReservationID ResID_Type="14" ResID_Value="4105537212"/></HotelReservationIDs>
+        <Total AmountAfterTax="2380.00" CurrencyCode="RON"/>
+        <Commission><CommissionPayableAmount Amount="357.00" CurrencyCode="RON"/></Commission>
+        <Comments><Comment><Text>Sosim după ora 20.</Text></Comment></Comments>
+      </ResGlobalInfo>
+    </HotelReservation>
+    <HotelReservation ResStatus="Cancel">
+      <UniqueID Type="14" ID="4105530000"/>
+      <RoomStays><RoomStay>
+        <RoomTypes><RoomType RoomTypeCode="871234501"/></RoomTypes>
+        <TimeSpan Start="2027-08-01" End="2027-08-03"/>
+        <Total AmountAfterTax="900.00" CurrencyCode="RON"/>
+      </RoomStay></RoomStays>
+      <ResGlobalInfo><HotelReservationIDs><HotelReservationID ResID_Value="4105530000"/></HotelReservationIDs></ResGlobalInfo>
+    </HotelReservation>
+  </HotelReservations>
+</OTA_HotelResNotifRQ>

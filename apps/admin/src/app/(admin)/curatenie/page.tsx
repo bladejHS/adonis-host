@@ -16,13 +16,14 @@ const NEXT: Record<string, [string, string] | null> = {
 
 export default async function Housekeeping() {
   const t = today();
-  const [tasks, rooms] = await Promise.all([
+  const [tasks, rooms, staff] = await Promise.all([
     prisma.housekeepingTask.findMany({
       where: { OR: [{ status: { in: ["todo", "in_progress"] } }, { completedAt: { gte: addDays(t, -1) } }, { dueDate: { gte: t, lt: addDays(t, 2) } }] },
-      include: { room: true },
+      include: { room: true, assigneeUser: true, photos: true },
       orderBy: [{ priority: "asc" }, { dueDate: "asc" }],
     }),
     prisma.room.findMany({ orderBy: { number: "asc" } }),
+    prisma.user.findMany({ where: { active: true, role: { in: ["housekeeping", "maintenance"] } }, orderBy: { name: "asc" } }),
   ]);
   const columns = ["todo", "in_progress", "done", "verified"] as const;
   const prioWeight = { high: 0, normal: 1, low: 2 } as Record<string, number>;
@@ -54,8 +55,18 @@ export default async function Housekeeping() {
                         {task.priority === "high" && <span className="rounded-full bg-error-soft px-2 py-0.5 text-[0.6875rem] text-error">urgent</span>}
                       </div>
                       <p className="text-xs text-subtle">
-                        {task.assignee ?? "Neasignat"} · {task.dueDate.getTime() === t.getTime() ? "azi" : fmtShort(task.dueDate)}
+                        {task.assigneeUser?.name ?? task.assignee ?? "Neasignat"} · {task.dueDate.getTime() === t.getTime() ? "azi" : fmtShort(task.dueDate)}
+                        {task.minutesSpent ? ` · ${task.minutesSpent} min` : ""}
                       </p>
+                      {task.photos.length > 0 && (
+                        <div className="flex gap-1.5">
+                          {task.photos.map((ph) => (
+                            <a key={ph.id} href={`/api/fisiere/${ph.path}`} target="_blank" rel="noreferrer">
+                              <img src={`/api/fisiere/${ph.path}`} alt="Poză daună" className="h-12 w-12 rounded-sm object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       {task.notes && <p className="text-xs italic text-subtle">{task.notes}</p>}
                       {next && (
                         <form action={advanceTask.bind(null, task.id, next[0])}>
@@ -98,7 +109,12 @@ export default async function Housekeeping() {
               </select>
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Cine"><input name="assignee" className="field" placeholder="Mariana" /></Field>
+              <Field label="Cine">
+                <select name="assigneeId" className="field" defaultValue="">
+                  <option value="">Oricine din echipă</option>
+                  {staff.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </Field>
               <Field label="Prioritate">
                 <select name="priority" className="field" defaultValue="normal">
                   <option value="high">Urgentă</option>
@@ -110,7 +126,7 @@ export default async function Housekeeping() {
             <Field label="Detalii"><textarea name="notes" rows={2} className="field" /></Field>
             <Submit>Adaugă sarcina</Submit>
           </form>
-          <p className="mt-4 text-xs text-subtle">Aplicația mobilă pentru personal (fotografii, notificări, consumabile) vine în Faza 4. Stări posibile: {Object.values(TASK_STATUS).join(" → ")}.</p>
+          <p className="mt-4 text-xs text-subtle">Echipa folosește aplicația mobilă „Adonis Casă”: pornește cronometrul, fotografiază daunele (cu dată și oră pe poză) și primește notificări. Stări posibile: {Object.values(TASK_STATUS).join(" → ")}.</p>
         </Card>
       </div>
     </div>

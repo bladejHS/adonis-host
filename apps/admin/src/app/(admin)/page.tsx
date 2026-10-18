@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, LogIn, LogOut, Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { kpis, dailyOccupancy } from "@/lib/kpi";
+import { kpis, dailyOccupancy } from "@adonis/core";
 import { addDays, fmtShort, fmtWeekday, greeting, lei, pct, plural, relTime, today } from "@/lib/format";
 import { setReservationStatus } from "@/lib/actions";
 import { Card, Empty, HousekeepingBadge, Notice, SourceTag, StatusBadge, Stat, sourceColor } from "@/components/ui";
@@ -11,7 +11,7 @@ import { SOURCE } from "@adonis/database";
 export default async function Dashboard() {
   const t = today();
   const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  const [arrivals, departures, inHouse, rooms, tasksOpen, syncErr, unpaid, season, next14, property] = await Promise.all([
+  const [arrivals, departures, inHouse, rooms, tasksOpen, syncErr, unpaid, season, next14, property, alerts] = await Promise.all([
     prisma.reservation.findMany({ where: { checkIn: t, status: { in: ["pending", "confirmed", "checked_in"] } }, include: { guest: true, room: true }, orderBy: { room: { number: "asc" } } }),
     prisma.reservation.findMany({ where: { checkOut: t, status: { in: ["checked_in", "checked_out"] } }, include: { guest: true, room: true }, orderBy: { room: { number: "asc" } } }),
     prisma.reservation.count({ where: { status: "checked_in" } }),
@@ -22,6 +22,7 @@ export default async function Dashboard() {
     kpis(yearStart, addDays(t, 1)),
     dailyOccupancy(t, 14),
     prisma.property.findFirstOrThrow(),
+    prisma.alert.findMany({ where: { resolvedAt: null }, orderBy: [{ severity: "asc" }, { createdAt: "desc" }], take: 4 }),
   ]);
 
   const outstanding = unpaid.filter((r) => r.paidAmount < r.totalAmount + r.touristTax);
@@ -69,8 +70,13 @@ export default async function Dashboard() {
         <Stat label="Anulări" value={pct(season.cancellationRate)} hint={`din ${plural(season.bookings, "rezervare", "rezervări")} în ${t.getUTCFullYear()}`} />
       </div>
 
-      {(syncErr || outstanding.length > 0 || byHk.maintenance || pendingCount > 0) && (
+      {(syncErr || outstanding.length > 0 || byHk.maintenance || pendingCount > 0 || alerts.length > 0) && (
         <div className="grid gap-3 md:grid-cols-2">
+          {alerts.map((a) => (
+            <Notice key={a.id} tone={a.severity === "critical" ? "error" : "warning"} title={a.title}>
+              {a.body.slice(0, 160)} <Link href="/analitice" className="underline decoration-gold underline-offset-4">Detalii</Link>
+            </Notice>
+          ))}
           {pendingCount > 0 && (
             <Notice tone="warning" title={`${plural(pendingCount, "rezervare așteaptă", "rezervări așteaptă")} confirmare`}>
               Sosesc în următoarele 7 zile. <Link href="/rezervari?status=pending" className="underline decoration-gold underline-offset-4">Vezi lista</Link>
